@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy import stats
+from scipy.special import logsumexp
 import ssm
 from ssm.util import find_permutation
 from general_utilities import *
