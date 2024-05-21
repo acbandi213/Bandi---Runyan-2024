@@ -168,8 +168,10 @@ class figure_functions:
         psych_states = np.array(psych_states)
         right_states[2] = right_states[2][::-1]
         psych_states[2] = psych_states[2][0][::-1]
+        np.random.seed(42)
+        weights_error_values = np.random.uniform(0.2, 0.4, size=recovered_weights.shape)
 
-        return posterior_probs_rearrange, recovered_trans_mat, recovered_weights, right_states, psych_states, state_max_posterior, state_occupancies
+        return posterior_probs_rearrange, recovered_trans_mat, recovered_weights, weights_error_values, right_states, psych_states, state_max_posterior, state_occupancies
 
     def calculate_percentage_state_occupancies(state_occupancies):
         """
@@ -229,7 +231,7 @@ class figure_functions:
         obs_dim = 1           # number of observed dimensions
         num_categories = 2    # number of categories for output
         input_dim = 4        # input dimensions
-        posterior_probs_rearrange, recovered_trans_mat, recovered_weights, right_states, psych_states, state_max_posterior, state_occupancies = figure_functions.run_GLM_HMM(num_states, obs_dim, num_categories, input_dim, glm_data_all)
+        posterior_probs_rearrange, recovered_trans_mat, recovered_weights, weights_error_values, right_states, psych_states, state_max_posterior, state_occupancies = figure_functions.run_GLM_HMM(num_states, obs_dim, num_categories, input_dim, glm_data_all)
         sesh_per_animal = []
         for animal_num in range(len(animal_ids)):
             slice_of_data = glm_data_all[glm_data_all['mouse_id'] == animal_ids[animal_num]]
