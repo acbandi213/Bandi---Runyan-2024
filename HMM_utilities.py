@@ -6,7 +6,21 @@ from scipy.optimize import curve_fit
 from scipy import stats
 
 class psychometrics:
-    def scale_stim_values(data): #Scale stimulus values for optimized GL
+    """
+    Class containing functions for psychometric analysis.
+    """
+
+    def scale_stim_values(data):
+        """
+        Scale stimulus values for optimized GLM.
+
+        Args:
+            data (DataFrame): The input data containing trial information.
+
+        Returns:
+            list: Scaled stimulus values.
+        """
+        #Scale stimulus values for optimized GL
         Stim_val = []
         stim_vals = stats.zscore([-1, -0.5, -0.25, -0.125, 0.125, 0.25, 0.5, 1])
         stim_conditions = [1,5,3,7,8,4,6,2]
@@ -18,6 +32,17 @@ class psychometrics:
         return Stim_val
 
     def perc_left(condition, data, left):
+        """
+        Calculate the percentage of left choices for a given condition.
+
+        Args:
+            condition (int): The condition value.
+            data (DataFrame): The input data containing trial information.
+            left (int): Indicator for left choice (1) or right choice (0).
+
+        Returns:
+            float: The percentage of left choices.
+        """
         cond_frame = data[data['condition'] == condition]
         if left == 1:
             percent = len(cond_frame[cond_frame['choice'] == 0])/len(cond_frame)
@@ -26,10 +51,32 @@ class psychometrics:
         return percent
 
     def sigmoid(x, L ,x0, k, b):
+        """
+        Sigmoid function.
+
+        Args:
+            x (float): Input value.
+            L (float): Maximum value of the sigmoid.
+            x0 (float): Midpoint of the sigmoid.
+            k (float): Steepness of the sigmoid.
+            b (float): Vertical offset of the sigmoid.
+
+        Returns:
+            float: Sigmoid output value.
+        """
         y = L / (1 + np.exp(-k*(x-x0))) + b
         return (y)
 
     def fit_sigmoid(y_data):
+        """
+        Fit a sigmoid curve to the data.
+
+        Args:
+            y_data (list): The data to fit the sigmoid curve to.
+
+        Returns:
+            numpy.ndarray: The fitted sigmoid curve.
+        """
         xdata = list(range(0,8))
         ydata = y_data
 
@@ -43,7 +90,17 @@ class psychometrics:
         return y 
     
 class plotting:
+    """
+    Class containing functions for plotting psychometric curves.
+    """
+
     def plot_psychometric_all_data(data):
+        """
+        Plot the psychometric curve for all data.
+
+        Args:
+            data (DataFrame): The input data containing trial information.
+        """
         fig, axs = plt.subplots(1,1,figsize = (2.5,4))
 
         right = [] 
@@ -58,6 +115,13 @@ class plotting:
         axs.set_title('All animals \n' + 'num_trials = ' + str(len(data)))
 
     def plot_psychometric_for_animal(data, animal_ids):
+        """
+        Plot the psychometric curves for each animal.
+
+        Args:
+            data (DataFrame): The input data containing trial information.
+            animal_ids (list): List of animal IDs.
+        """
         fig, axs = plt.subplots(3,5,figsize = (16,8))
 
         for animal_num in range(0,len(animal_ids)):

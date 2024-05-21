@@ -23,6 +23,13 @@ from HMM_functions import *
 class data_extraction:
 
     def create_matrix_aligned_data(mat_data, session_number):
+        """
+        Create a dictionary containing aligned data for a specific session.
+
+        :param mat_data: MATLAB data containing aligned data.
+        :param session_number: The session number to extract data from.
+        :return: A dictionary containing aligned data for the specified session.
+        """
         aligned_data = mat_data['aligned_data'][0]
         session_data = aligned_data[session_number]
         session = {}
@@ -42,6 +49,12 @@ class data_extraction:
         return session
     
     def convert_stim_values(arr):
+        """
+        Convert and z-score stimulus values.
+
+        :param arr: Array of stimulus values.
+        :return: A tuple containing the reordered stimulus values and z-scored stimulus values.
+        """
         # Mapping of original values to their new values
         value_map = {1: 1, 2: 5, 3: 3, 4: 7, 5: 8, 6: 4, 7: 6, 8: 2}
         # Converting each element in the array
@@ -54,6 +67,13 @@ class data_extraction:
         return np.array(stims_reordered), np.array(Stim_val_zscored)
     
     def create_data_matrix_session(session, Stim_val_zscored):
+        """
+        Create a data matrix and choice vector for a session.
+
+        :param session: Dictionary containing session data.
+        :param Stim_val_zscored: Z-scored stimulus values.
+        :return: A tuple containing the data matrix and choice vector for the session.
+        """
         data_matrix_session = []
         choice_session = []
         for trial in list(range(len(session['is_left_choice'][:,0]))):
@@ -77,8 +97,79 @@ class data_extraction:
             choice_session.append([choice_change])
 
         return np.array(data_matrix_session), np.array(choice_session)
+    
+    def balance_trials(data, states, stimulus, choice):
+        """
+        Balance trials based on state and trial conditions.
+
+        This function selects an equal number of state 1 trials and non-state 1 trials
+        (combining state 2 and 3), and then balances them to have a structured distribution
+        of trials from each stimulus and choice combination.
+
+        :param data: The dataset containing the neural activity data.
+        :param states: An array indicating the state (1, 2, or 3) for each trial.
+        :param stimulus: An array indicating the stimulus (0 for left, 1 for right) for each trial.
+        :param choice: An array indicating the choice (0 for left, 1 for right) for each trial.
+        :return: The balanced dataset with an equal number of state 1 and non-state 1 trials,
+                 and a structured distribution of trials from each stimulus and choice combination.
+        """
+        # Separate trials based on the state
+        state_1_trials = data[states == 1]
+        state_2_3_trials = data[(states == 2) | (states == 3)]
+        
+        # Determine the minimum number of trials between state 1 and non-state 1 trials
+        min_trials = min(len(state_1_trials), len(state_2_3_trials))
+        
+        # Create labels for balancing trial conditions
+        state_1_labels = (2 * stimulus[states == 1] + choice[states == 1]).astype(str)
+        state_2_3_labels = (2 * stimulus[(states == 2) | (states == 3)] + choice[(states == 2) | (states == 3)]).astype(str)
+        
+        # Initialize empty arrays to store the balanced datasets
+        balanced_state_1 = np.empty((0, state_1_trials.shape[1]))
+        balanced_state_2_3 = np.empty((0, state_2_3_trials.shape[1]))
+        
+        # Iterate over each trial condition
+        for condition in ['00', '01', '10', '11']:
+            # Select trials for the current condition in state 1
+            state_1_condition_trials = state_1_trials[state_1_labels == condition]
+            state_1_condition_count = len(state_1_condition_trials)
+            
+            # Select trials for the current condition in non-state 1
+            state_2_3_condition_trials = state_2_3_trials[state_2_3_labels == condition]
+            state_2_3_condition_count = len(state_2_3_condition_trials)
+            
+            # Determine the minimum number of trials for the current condition
+            min_condition_trials = min(state_1_condition_count, state_2_3_condition_count, min_trials // 4)
+            
+            # Randomly select an equal number of trials for the current condition
+            selected_state_1_trials = state_1_condition_trials[np.random.choice(state_1_condition_count, min_condition_trials, replace=False)]
+            selected_state_2_3_trials = state_2_3_condition_trials[np.random.choice(state_2_3_condition_count, min_condition_trials, replace=False)]
+            
+            # Append the selected trials for the current condition to the balanced datasets
+            balanced_state_1 = np.vstack((balanced_state_1, selected_state_1_trials))
+            balanced_state_2_3 = np.vstack((balanced_state_2_3, selected_state_2_3_trials))
+        
+        # Combine the balanced state 1 and non-state 1 datasets
+        balanced_data = np.vstack((balanced_state_1, balanced_state_2_3))
+        
+        # Return the balanced dataset
+        return balanced_data
         
     def run_single_glmhmm(glm_data, Choice, Session_info, num_states, obs_dim, num_categories, input_dim):
+        """
+        Run a single GLM-HMM model.
+
+        :param glm_data: GLM data.
+        :param Choice: Choice data.
+        :param Session_info: Session information.
+        :param num_states: Number of states in the model.
+        :param obs_dim: Observation dimension.
+        :param num_categories: Number of categories.
+        :param input_dim: Input dimension.
+        :return: A tuple containing the fitted log-likelihood, recovered transition matrix, recovered weights,
+                 rearrange positions, posterior probabilities, state with maximum posterior, state occupancies,
+                 and updated GLM data.
+        """
         true_glmhmm = ssm.HMM(num_states, obs_dim, input_dim, observations="input_driven_obs", 
                     observation_kwargs=dict(C=num_categories), transitions="standard")
 
@@ -106,7 +197,7 @@ class data_extraction:
     
     def restructure_states(states):
         """
-        Restructures the state array for a binary classification: state 0 vs not state 0.
+        Restructure the state array for binary classification: state 0 vs not state 0.
 
         :param states: Original state array.
         :return: Restructured state array.
@@ -116,7 +207,7 @@ class data_extraction:
     
     def decode_states(neural_data, states, n_timepoints):
         """
-        Decodes states from neural data using a linear SVM and cross-validation.
+        Decode states from neural data using a linear SVM and cross-validation.
 
         :param neural_data: Neural data in the shape (trials, neurons, timepoints).
         :param states: The states for each trial.
@@ -139,6 +230,13 @@ class data_extraction:
         return scores
     
     def decoder(neural_data, y):
+        """
+        Decode states or choices from neural data using a support vector machine (SVM) with cross-validation.
+
+        :param neural_data: Neural data tensor with shape (trials, neurons, time_points).
+        :param y: Target variable (states or choices) for each trial.
+        :return: A tuple containing the mean accuracies and standard deviations across iterations for each time point.
+        """
         n_trials, n_neurons, n_time_points = neural_data.shape
 
         iterations = 10
@@ -154,14 +252,11 @@ class data_extraction:
                 # Split the data into training and testing sets
                 X_train, X_test, y_train, y_test = train_test_split(current_time_data, y, test_size=0.3, random_state=iteration)  # Change random_state to iteration for variability
                 
-                # Train the linear SVM model
-                #svm_model = LinearSVC(C=0.1, dual=False)
-                svm_model = SVC(C=100, gamma=0.1, kernel='rbf') #found via grid search 
+                # Train the SVM model
+                svm_model = SVC(C=100, gamma=0.1, kernel='rbf')  # Parameters found via grid search 
                 svm_model.fit(X_train, y_train)
                 
-                # Predict and calculate accuracy
-                y_pred = svm_model.predict(X_test)
-                #all_accuracies[iteration, time_point] = accuracy_score(y_test, y_pred)
+                # Perform cross-validation and store the mean accuracy
                 all_accuracies[iteration, time_point] = cross_val_score(svm_model, current_time_data, y, cv=5).mean()
 
         # Calculate mean and standard deviation across iterations for each time point
@@ -171,6 +266,18 @@ class data_extraction:
         return mean_accuracies, std_accuracies
     
     def decode_stim_or_choice(session, states, min_num_cells, n_timepoints, alignment_mode, decoding_var, balanced_index):
+        """
+        Decode stimulus or choice from neural data using an SVM classifier.
+
+        :param session: Session data dictionary.
+        :param states: Array of states for each trial.
+        :param min_num_cells: Minimum number of cells to use for decoding.
+        :param n_timepoints: Number of time points to consider.
+        :param alignment_mode: Alignment mode ('r_aligned_choice' or 'r_aligned_stimulus').
+        :param decoding_var: Variable to decode ('is_left_choice' or 'is_left_stimulus').
+        :param balanced_index: Indices of balanced trials.
+        :return: A tuple containing mean accuracies and standard deviations for state 1 trials and all trials.
+        """
         neural_data = session[alignment_mode] #r_aligned_choice | r_aligned_stimulus
 
         y = session[decoding_var][:,0] #is_left_choice | is_left_stimulus
@@ -188,6 +295,16 @@ class data_extraction:
         return mean_accuracies_state1, std_accuracies_state1, mean_accuracies_all_state, std_accuracies_all_state
     
     def decode_state(session, states, min_num_cells, n_timepoints, alignment_mode):
+        """
+        Decode states from neural data using an SVM classifier.
+
+        :param session: Session data dictionary.
+        :param states: Array of states for each trial.
+        :param min_num_cells: Minimum number of cells to use for decoding.
+        :param n_timepoints: Number of time points to consider.
+        :param alignment_mode: Alignment mode ('r_aligned_choice' or 'r_aligned_stimulus').
+        :return: A tuple containing mean accuracies and standard deviations for decoding states.
+        """
         neural_data = session[alignment_mode] #r_aligned_choice | r_aligned_stimulus
 
         y = states #is_left_choice | is_left_stimulus
@@ -195,15 +312,18 @@ class data_extraction:
         num_cells_to_use = np.random.randint(0, neural_data.shape[1], min_num_cells)
         neural_data = neural_data[:,num_cells_to_use,:n_timepoints]
 
-        #non_state1_trial_index = np.where(states == 0)[0]
-        #subsample = np.random.randint(0, len(y), len(non_state1_trial_index))
-
         mean_accuracies_state, std_accuracies_state = data_extraction.decoder(neural_data, y)
-        #mean_accuracies_all_state, std_accuracies_all_state = data_extraction.decoder(neural_data[subsample], y[subsample])
 
         return mean_accuracies_state, std_accuracies_state
 
     def decode_choice(session, states):
+        """
+        Decode choices from neural data using an SVM classifier.
+
+        :param session: Session data dictionary.
+        :param states: Array of states for each trial.
+        :return: A tuple containing decoding results for state 1 trials and all trials.
+        """
         neural_data = session['r_aligned_choice'] #r_aligned_choice | r_aligned_stimulus
         y = session['is_left_choice'][:,0] #is_left_choice | is_left_stimulus
         index = np.where(states == 0)[0]
@@ -214,12 +334,26 @@ class data_extraction:
         results_all_trials_choice = data_extraction.decode_states(neural_data[subsample], y[subsample], n_timepoints)
 
         return results_state1_choice, results_all_trials_choice
-    
+
     def trial_correctness(choices, stimuli):
+        """
+        Determine the correctness of each trial based on choices and stimuli.
+
+        :param choices: Array of choices for each trial.
+        :param stimuli: Array of stimuli for each trial.
+        :return: Array of correctness values (1 for correct, 0 for incorrect).
+        """
         # Using list comprehension to compare each element
         return [1 if choice == stimulus else 0 for choice, stimulus in zip(choices, stimuli)]
 
     def subsample_trials(choices, stimuli):
+        """
+        Subsample trials to balance correct and incorrect trials for each choice category.
+
+        :param choices: Array of choices for each trial.
+        :param stimuli: Array of stimuli for each trial.
+        :return: Array of indices of the subsampled trials.
+        """
         # First, determine the correctness of each trial
         correctness = data_extraction.trial_correctness(choices, stimuli)
 
@@ -232,14 +366,14 @@ class data_extraction:
         # Classify each trial
         for idx, (choice, correct) in enumerate(zip(choices, correctness)):
             if correct:
-                if choice == 0:  # Left
+                if choice == 0: # Left
                     correct_left.append(idx)
-                else:  # Right
+                else: # Right
                     correct_right.append(idx)
             else:
-                if choice == 0:  # Left
+                if choice == 0: # Left
                     incorrect_left.append(idx)
-                else:  # Right
+                else: # Right
                     incorrect_right.append(idx)
 
         # Determine the minimum number of trials in any category

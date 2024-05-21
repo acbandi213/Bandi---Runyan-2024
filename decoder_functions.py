@@ -21,14 +21,20 @@ from general_utilities import *
 from HMM_functions import *
 
 class decoders:
+    """
+    Class containing functions for decoding and analyzing neural data.
+    """
 
     def load_imaging_spk(path):
-        '''<Function> load imaging_spk
-            Input parameters::
-            path: path of the selected imaging data session 
-            Returns::
-            f: compressed h5py imaging_spk (easier to open this way since imaging_spk is massive)
-            '''
+        """
+        Load the imaging_spk data from a MATLAB file.
+
+        Args:
+            path (str): Path of the selected imaging data session.
+
+        Returns:
+            h5py.File: Compressed h5py imaging_spk file.
+        """
         os.chdir(path)
         arrays = {}
         f = h5py.File('imaging_spk.mat')
@@ -38,12 +44,15 @@ class decoders:
         return f 
 
     def identify_imaged_trials_in_imaging_spk(path):
-        '''<Function> identify which trials in imaging_spk have neural data 
-            Input parameters::
-            path: path of the selected imaging data session 
-            Returns::
-            imaged_trials: list of trials that were imaged (0:n)
-            '''
+        """
+        Identify which trials in imaging_spk have neural data.
+
+        Args:
+            path (str): Path of the selected imaging data session.
+
+        Returns:
+            list: List of trials that were imaged (0:n).
+        """
         f = decoders.load_imaging_spk(path)
         num_trials = f['imaging_spk']['start_it'].shape[0]
         #Figure out which trials were imaged and which were not 
@@ -62,18 +71,19 @@ class decoders:
         return imaged_trials
 
     def extract_neuraldata_from_imaging_spk(path, event_for_alignment, numFrames):
-        '''<Function> extract neuraldata from imaging_spk
-            Input parameters::
-            path: path of the selected imaging data session 
-            event_for_alignment: str of task event used for allignment, can be one of these features -
-                'running_start'
-                'stimulus_on_frames'
-                'reward_on_frames'
-            numFrames: number of frames in each trial to extract 
-            Returns::
-            all_trials: extracted neural activity from chosen event onset + numFrames for all imaging trials for the loaded session 
-                        shape = trials x neurons x frames
-            '''
+        """
+        Extract neural data from imaging_spk.
+
+        Args:
+            path (str): Path of the selected imaging data session.
+            event_for_alignment (str): Task event used for alignment. Can be one of:
+                'running_start', 'stimulus_on_frames', 'reward_on_frames'.
+            numFrames (int): Number of frames in each trial to extract.
+
+        Returns:
+            numpy.ndarray: Extracted neural activity from chosen event onset + numFrames for all imaging trials.
+                Shape: (trials, neurons, frames)
+        """
         f = decoders.load_imaging_spk(path)
         imaged_trials = decoders.identify_imaged_trials_in_imaging_spk(path)
 
@@ -101,16 +111,18 @@ class decoders:
         return all_trials
 
     def extract_df_imaging(df, path, path_list, imaging_sesh):
-        '''<Function> extract dataframe of trial information for the selected imaging session 
-            Input parameters::
-            df: large dataframe of trial information across all session for all mice in Runyan 2017 datset 
-            path: path of the selected imaging data session
-            path_list: list of all paths for all imaging data session 
-            imaging_sesh: number of the imaging session in path_list 
-                **should find a way to make this more efficient**
-            Returns::
-            df_imaged: pandas dataframe of relevant trial information for the selected imaging data session 
-            '''
+        """
+        Extract a DataFrame of trial information for the selected imaging session.
+
+        Args:
+            df (pandas.DataFrame): Large DataFrame of trial information across all sessions for all mice.
+            path (str): Path of the selected imaging data session.
+            path_list (list): List of all paths for all imaging data sessions.
+            imaging_sesh (int): Index of the imaging session in path_list.
+
+        Returns:
+            pandas.DataFrame: DataFrame of relevant trial information for the selected imaging data session.
+        """
         f = decoders.load_imaging_spk(path)
         imaged_trials = decoders.identify_imaged_trials_in_imaging_spk(path)
 
@@ -125,14 +137,18 @@ class decoders:
         return df_imaged
     
     def principal_component_analysis(neural_activity_imaged_trials, n_components):
-        '''<Function> principal component analysis on selected imaging session neural data (for specified time point in trial) 
-        Input parameters::
-        neural_activity_imaged_trials: trialized neural activity from function: extract_neuraldata_from_imaging_spk 
-        n_components: # of principal components 
-        Returns::
-        activity_pc: dimensionally reduced neural data (frames x PC)
-        activity_pc_reshaped: reshaped dimensionally reduced neural data (trials x frames x PC) 
-            '''
+        """
+        Perform principal component analysis on selected imaging session neural data.
+
+        Args:
+            neural_activity_imaged_trials (numpy.ndarray): Trialized neural activity from extract_neuraldata_from_imaging_spk.
+            n_components (int): Number of principal components.
+
+        Returns:
+            tuple: A tuple containing:
+                - activity_pc (numpy.ndarray): Dimensionally reduced neural data. Shape: (frames, PC)
+                - activity_pc_reshaped (numpy.ndarray): Reshaped dimensionally reduced neural data. Shape: (trials, frames, PC)
+        """
         neural_data_trialized_transposed = neural_activity_imaged_trials.transpose(0,2,1)
         neural_data_trialized_reshaped = neural_data_trialized_transposed.reshape(neural_data_trialized_transposed.shape[0]*neural_data_trialized_transposed.shape[1],
                                                                             neural_data_trialized_transposed.shape[2])
@@ -146,19 +162,20 @@ class decoders:
         return activity_pc, activity_pc_reshaped                                                          
 
     def SVM_linear_decoder(df, neural_activity_imaged_trials, feature):
-        '''<Function> linear support vector machine for classification of task feature information given neural data  
-        Input parameters::
-        df_imaged: dataframe from selected imaging session 
-        neural_activity_imaged_trials: neural activity from selected imaging session 
-        feature: str of feature information (found in df_imaged), examples:
-            'choice',
-            'correct',
-            'state' (GLM-HMM latent state prediction)
-        Returns::
-        cv_scores: 5-fold cross validation accuracy scores 
-        accuracy: accuracy score on test data 
-        percent_of_zero_in_y: useful for seeing distribution of classess of selected feature 
-        '''
+        """
+        Train a linear support vector machine (SVM) for classification of task feature information given neural data.
+
+        Args:
+            df (pandas.DataFrame): DataFrame from the selected imaging session.
+            neural_activity_imaged_trials (numpy.ndarray): Neural activity from the selected imaging session.
+            feature (str): Feature information found in df_imaged. Examples: 'choice', 'correct', 'state'.
+
+        Returns:
+            tuple: A tuple containing:
+                - cv_scores (numpy.ndarray): 5-fold cross-validation accuracy scores.
+                - accuracy (float): Accuracy score on the test data.
+                - percent_of_zero_in_y (float): Percentage of zero values in the target variable.
+        """
         neural_data = neural_activity_imaged_trials
         neural_data_reshape = neural_data.reshape(neural_data.shape[0], 
                                                 neural_data.shape[1]*neural_data.shape[2])
@@ -190,14 +207,18 @@ class decoders:
         return cv_scores, accuracy, percent_of_zero_in_y 
     
     def tensor_component_analysis(neural_activity_imaged_trials, rank): 
-        '''<Function> non negative tensor component analysis on neural_activity_imaged_trials tensor (trials x neurons x time)
-            Input parameters::
-            neural_activity_imaged_trials: neural activity from selected imaging session 
-            rank: rank of TCA (i.e. how many factors)
-            Returns::
-            Factor_matrices_rearrnaged: TCA n-rank matrix (shape = neurons, time, factors)
-            reconstructed_tensor: reconstructed tensor 
-        '''
+        """
+        Perform non-negative tensor component analysis on the neural activity tensor.
+
+        Args:
+            neural_activity_imaged_trials (numpy.ndarray): Neural activity tensor. Shape: (trials, neurons, time)
+            rank (int): Rank of the tensor component analysis (i.e., number of factors).
+
+        Returns:
+            tuple: A tuple containing:
+                - Factor_matrices_rearranged (numpy.ndarray): TCA n-rank matrix. Shape: (neurons, time, factors)
+                - reconstructed_tensor (tensorly.tensor): Reconstructed tensor.
+        """
         #non negative tensor component analysis on tensor output from extract_imaging_spk
         data = neural_activity_imaged_trials.astype(float)
         # Normalize the data to a non-negative range
@@ -219,22 +240,28 @@ class decoders:
 
         # Retrieve the factor matrices
         factor_matrices = factors.factors
-        Factor_matrices_rearrnaged = []
+        Factor_matrices_rearranged = []
         for factor in [1,2,0]:
             fac_mat_rearrange = factor_matrices[factor][:,:]
-            Factor_matrices_rearrnaged.append(fac_mat_rearrange)
-        Factor_matrices_rearrnaged = np.array(Factor_matrices_rearrnaged, dtype=object)
+            Factor_matrices_rearranged.append(fac_mat_rearrange)
+        Factor_matrices_rearranged = np.array(Factor_matrices_rearranged, dtype=object)
         
-        return Factor_matrices_rearrnaged, reconstructed_tensor
+        return Factor_matrices_rearranged, reconstructed_tensor
     
     def extract_pre_post_turn_neural_data(path, preturn_frame_size, postturn_frame_size):
-        '''<Function> extract pre and post turn neuraldata from imaging_spk by alignment to x-position in maze 
-        Input parameters::
-        path: path of the selected imaging data session 
-        Returns::
-        neural_activity_imaged_trials_preturn: shape = trials x neurons x frames (60 frames pre turn)
-        neural_activity_imaged_trials_postturn: shape = trials x neurons x frames (30 frames post turn)
-        '''
+        """
+        Extract pre-turn and post-turn neural data from imaging_spk by alignment to x-position in the maze.
+
+        Args:
+            path (str): Path of the selected imaging data session.
+            preturn_frame_size (int): Number of frames to extract before the turn.
+            postturn_frame_size (int): Number of frames to extract after the turn.
+
+        Returns:
+            tuple: A tuple containing:
+                - neural_activity_imaged_trials_preturn (numpy.ndarray): Pre-turn neural activity. Shape: (trials, neurons, frames)
+                - neural_activity_imaged_trials_postturn (numpy.ndarray): Post-turn neural activity. Shape: (trials, neurons, frames)
+        """
         f = decoders.load_imaging_spk(path)
         imaged_trials = decoders.identify_imaged_trials_in_imaging_spk(path)
 
@@ -279,6 +306,22 @@ class decoders:
         return neural_activity_imaged_trials_preturn, neural_activity_imaged_trials_postturn
 
     def SVM_acc_region(state_prob, df, path_list, feature):
+        """
+        Train SVM classifiers and compute accuracy for a specific feature across multiple imaging sessions.
+
+        Args:
+            state_prob (numpy.ndarray): State probabilities.
+            df (pandas.DataFrame): DataFrame containing trial information.
+            path_list (list): List of paths for all imaging data sessions.
+            feature (str): Feature to decode (e.g., 'choice', 'correct', 'state').
+
+        Returns:
+            tuple: A tuple containing:
+                - SVM_cv_acc_all_sessions (numpy.ndarray): Cross-validation accuracies for all sessions.
+                - mean (float): Mean cross-validation accuracy across sessions.
+                - err (float): Standard deviation of cross-validation accuracies across sessions.
+                - perc_state_1_all_sessions (list): Percentage of trials in state 1 for all sessions.
+        """
         Stim = []
         for trial in df.index.tolist():
             if df['stim_value'][trial] < 0:
@@ -310,4 +353,4 @@ class decoders:
         mean = SVM_cv_acc_all_sessions.mean(axis=1)
         err = SVM_cv_acc_all_sessions.std(axis=1)
 
-        return SVM_cv_acc_all_sessions, mean, err, perc_state_1_all_sessions    
+        return SVM_cv_acc_all_sessions, mean, err, perc_state_1_all_sessions
