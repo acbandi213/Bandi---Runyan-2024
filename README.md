@@ -1,5 +1,12 @@
 # Code to generate all of the figures in Bandi & Runyan 2024 
 
+## Install the python environment in anaconda 
+
+1. download the repository 
+2. cd into the location of the repo
+3. conda env create -f environment.yml
+4. conda activate Bandi_Runyan_24
+   
 ## Figure 1 (+ Supp Fig 1 & 2) 
 
 To fit GLM-HMM (global + individual) on Runyan_2017 behavioral data: load behavioral_data_runyan.csv -> use HMM_functions.py + HMM_utilities.py (mainly for plotting) 
