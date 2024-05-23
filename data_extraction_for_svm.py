@@ -253,7 +253,7 @@ class data_extraction:
                 X_train, X_test, y_train, y_test = train_test_split(current_time_data, y, test_size=0.3, random_state=iteration)  # Change random_state to iteration for variability
                 
                 # Train the SVM model
-                svm_model = SVC(C=100, gamma=0.1, kernel='rbf')  # Parameters found via grid search 
+                svm_model = SVC(C=1, gamma=0.1, kernel='linear')  # Parameters found via grid search 
                 svm_model.fit(X_train, y_train)
                 
                 # Perform cross-validation and store the mean accuracy
